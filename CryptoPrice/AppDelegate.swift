@@ -94,6 +94,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         let coin1IsKRW = selectedCoin.apiSymbol.hasSuffix("KRW")
         let coin2IsKRW = secondSelectedCoin.apiSymbol.hasSuffix("KRW")
+        let coin1IsPerp = selectedCoin.apiSymbol.hasSuffix("PERP")
+        let coin2IsPerp = secondSelectedCoin.apiSymbol.hasSuffix("PERP")
         
         // 코인1 가격 및 일일 변화율 요청
         dispatchGroup.enter()
@@ -119,8 +121,31 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             } else {
                 dispatchGroup.leave()
             }
+        } else if coin1IsPerp {
+            // Binance USDT‑M 선물 24hr 엔드포인트
+            let symbol = selectedCoin.apiSymbol.replacingOccurrences(of: "PERP", with: "USDT")
+            let urlString1 = "https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=\(symbol)"
+            if let url1 = URL(string: urlString1) {
+                let task1 = URLSession.shared.dataTask(with: url1) { data, response, error in
+                    if let data = data, error == nil,
+                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                        if let priceString = json["lastPrice"] as? String,
+                           let price = Double(priceString) {
+                            firstPrice = price
+                        }
+                        if let changePercentStr = json["priceChangePercent"] as? String,
+                           let change = Double(changePercentStr) {
+                            firstChange = change
+                        }
+                    }
+                    dispatchGroup.leave()
+                }
+                task1.resume()
+            } else {
+                dispatchGroup.leave()
+            }
         } else {
-            // Binance: 24hr 엔드포인트 (일일 변화율 포함)
+            // Binance 현물 (Spot) 24hr 엔드포인트
             let urlString1 = "https://api.binance.com/api/v3/ticker/24hr?symbol=\(selectedCoin.apiSymbol)"
             if let url1 = URL(string: urlString1) {
                 let task1 = URLSession.shared.dataTask(with: url1) { data, response, error in
@@ -167,8 +192,31 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             } else {
                 dispatchGroup.leave()
             }
+        } else if coin2IsPerp {
+            // Binance USDT‑M 선물 24hr 엔드포인트
+            let symbol = secondSelectedCoin.apiSymbol.replacingOccurrences(of: "PERP", with: "USDT")
+            let urlString2 = "https://fapi.binance.com/fapi/v1/ticker/24hr?symbol=\(symbol)"
+            if let url2 = URL(string: urlString2) {
+                let task2 = URLSession.shared.dataTask(with: url2) { data, response, error in
+                    if let data = data, error == nil,
+                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                        if let priceString = json["lastPrice"] as? String,
+                           let price = Double(priceString) {
+                            secondPrice = price
+                        }
+                        if let changePercentStr = json["priceChangePercent"] as? String,
+                           let change = Double(changePercentStr) {
+                            secondChange = change
+                        }
+                    }
+                    dispatchGroup.leave()
+                }
+                task2.resume()
+            } else {
+                dispatchGroup.leave()
+            }
         } else {
-            // Binance: 24hr 엔드포인트 (일일 변화율 포함)
+            // Binance 현물 (Spot) 24hr 엔드포인트
             let urlString2 = "https://api.binance.com/api/v3/ticker/24hr?symbol=\(secondSelectedCoin.apiSymbol)"
             if let url2 = URL(string: urlString2) {
                 let task2 = URLSession.shared.dataTask(with: url2) { data, response, error in
@@ -206,8 +254,14 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             let formattedChange1 = firstChange != nil ? changeFormatter.string(from: NSNumber(value: firstChange!)) ?? "\(firstChange!)" : "Error"
             let formattedChange2 = secondChange != nil ? changeFormatter.string(from: NSNumber(value: secondChange!)) ?? "\(secondChange!)" : "Error"
             
-            let coin1Display = (self?.selectedCoin.display ?? "코인1").replacingOccurrences(of: "USDT", with: "").replacingOccurrences(of: "KRW", with: "")
-            let coin2Display = (self?.secondSelectedCoin.display ?? "코인2").replacingOccurrences(of: "USDT", with: "").replacingOccurrences(of: "KRW", with: "")
+            let coin1Display = (self?.selectedCoin.display ?? "코인1")
+                .replacingOccurrences(of: "USDT", with: "")
+                .replacingOccurrences(of: "KRW", with: "")
+                .replacingOccurrences(of: "PERP", with: "")
+            let coin2Display = (self?.secondSelectedCoin.display ?? "코인2")
+                .replacingOccurrences(of: "USDT", with: "")
+                .replacingOccurrences(of: "KRW", with: "")
+                .replacingOccurrences(of: "PERP", with: "")
             
             let coin1PriceText = coin1IsKRW ? "\(coin1Display): \(formattedFirst) KRW " : "\(coin1Display): $\(formattedFirst) "
             let coin2PriceText = coin2IsKRW ? "\(coin2Display): \(formattedSecond) KRW " : "\(coin2Display): $\(formattedSecond) "
